@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Lista de Pedidos</title>
+</head>
+<body>
+
+<div th:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-bag me-2 text-primary"></i>Pedidos
+        </h2>
+        <button type="button" id="btnNovo" class="btn btn-primary"
+                th:if="${perfil == 'GERENTE' or perfil == 'ATENDENTE'}">
+            <i class="bi bi-plus-lg me-1"></i> Novo Pedido
+        </button>
+    </div>
+
+    <div id="msg"></div>
+
+    <div class="card shadow-sm mb-4" id="cardNovo" style="display:none;">
+        <div class="card-body p-4">
+            <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-medium">Cliente</label>
+                    <select id="selCliente" class="form-select"></select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-medium">Tipo</label>
+                    <select id="selTipo" class="form-select">
+                        <option value="ENTREGA">Entrega</option>
+                        <option value="RETIRADA">Retirada</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row g-2 align-items-end mb-2">
+                <div class="col-md-6">
+                    <label class="form-label fw-medium">Produto</label>
+                    <select id="selProduto" class="form-select"></select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-medium">Qtd.</label>
+                    <input type="number" id="inpQtd" class="form-control" min="1" max="100" value="1"/>
+                </div>
+                <div class="col-md-4">
+                    <button type="button" id="btnAddItem" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-plus"></i> Adicionar item
+                    </button>
+                </div>
+            </div>
+            <ul id="listaItens" class="list-group mb-3"></ul>
+            <div class="d-flex align-items-center gap-3">
+                <button type="button" id="btnSalvarPedido" class="btn btn-success">
+                    <i class="bi bi-check-lg me-1"></i>Registrar pedido
+                </button>
+                <small class="text-muted">Preços e total são calculados pelo servidor.</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="ps-3">Entrada</th>
+                        <th>Cliente</th>
+                        <th>Itens</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Registrado por</th>
+                        <th>Saída</th>
+                        <th class="text-end pe-3">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="pedidos-tabela"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+    (function () {
+        const PERFIL = /*[[${perfil}]]*/ 'N/A';
+        const ehGerente = PERFIL === 'GERENTE';
+        const podeCriar = PERFIL === 'GERENTE' || PERFIL === 'ATENDENTE';
+        const msg = document.getElementById('msg');
+        const tbody = document.getElementById('pedidos-tabela');
+        let produtos = [];
+        let itensNovo = [];
+
+        const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+            c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+        const moeda = v => Number(v || 0).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+        const dt = v => v ? new Date(v).toLocaleString('pt-BR') : '—';
+
+        function aviso(texto, tipo) {
+            msg.innerHTML = '<div class="alert alert-' + tipo + ' alert-dismissible fade show">' + esc(texto) +
+                '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+        }
+
+        async function api(url, metodo, corpo) {
+            const opts = {method: metodo || 'GET', headers: {}};
+            if (corpo !== undefined) {
+                opts.headers['Content-Type'] = 'application/json';
+                opts.body = JSON.stringify(corpo);
+            }
+            const r = await fetch(url, opts);
+            let dados = null;
+            try { dados = await r.json(); } catch (e) { /* sem corpo */ }
+            if (!r.ok) throw new Error((dados && dados.erro) || ('Erro ' + r.status));
+            return dados;
+        }
+
+        function badge(status) {
+            const cor = {
+                RECEBIDO: 'bg-secondary', EM_PREPARACAO: 'bg-warning text-dark', PRONTO: 'bg-info text-dark',
+                SAIU_PARA_ENTREGA: 'bg-primary', RETIRADO: 'bg-primary', FINALIZADO: 'bg-success', CANCELADO: 'bg-danger'
+            }[status] || 'bg-dark';
+            return '<span class="badge ' + cor + '">' + esc(status) + '</span>';
+        }
+
+        function acoes(p) {
+            if (!ehGerente) return '';
+            const proximos = {
+                RECEBIDO: [ ['EM_PREPARACAO', 'Enviar à cozinha'] ],
+                EM_PREPARACAO: [ ['PRONTO', 'Marcar pronto'] ],
+                PRONTO: p.tipoEntrega === 'ENTREGA' ? [ ['SAIU_PARA_ENTREGA', 'Saiu p/ entrega'] ] : [ ['RETIRADO', 'Retirado'] ],
+                SAIU_PARA_ENTREGA: [ ['FINALIZADO', 'Finalizar'] ],
+                RETIRADO: [ ['FINALIZADO', 'Finalizar'] ]
+            }[p.status] || [];
+            let h = proximos.map(x => '<button class="btn btn-sm btn-outline-primary me-1" data-acao="status" data-id="' +
+                esc(p.id) + '" data-status="' + x[0] + '">' + x[1] + '</button>').join('');
+            if (['RECEBIDO', 'EM_PREPARACAO', 'PRONTO'].includes(p.status)) {
+                h += '<button class="btn btn-sm btn-outline-success me-1" data-acao="desconto" data-id="' + esc(p.id) + '">Desconto</button>';
+                h += '<button class="btn btn-sm btn-outline-danger" data-acao="cancelar" data-id="' + esc(p.id) + '">Cancelar</button>';
+            }
+            return h;
+        }
+
+        async function carregar() {
+            try {
+                const pedidos = await api('/api/pedidos');
+                if (!pedidos.length) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-5">Nenhum pedido encontrado.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = pedidos.map(p => {
+                    const itens = (p.itens || []).map(i => i.quantidade + 'x ' + esc(i.nome)).join('<br>');
+                    const desc = Number(p.descontoPercentual) > 0
+                        ? '<br><small class="text-success">desc. ' + esc(p.descontoPercentual) + '%</small>' : '';
+                    const extra = p.status === 'CANCELADO'
+                        ? '<br><small class="text-danger">' + esc(p.justificativaCancelamento) + '</small>' : '';
+                    return '<tr>' +
+                        '<td class="ps-3">' + dt(p.dataEntrada) + '</td>' +
+                        '<td>' + esc(p.clienteNome || p.clienteId) + '<br><small class="text-muted">' + esc(p.tipoEntrega) + '</small></td>' +
+                        '<td>' + (itens || '—') + '</td>' +
+                        '<td>' + moeda(p.total) + desc + '</td>' +
+                        '<td>' + badge(p.status) + extra + '</td>' +
+                        '<td>' + esc(p.criadoPor || '—') + '</td>' +
+                        '<td>' + dt(p.saidaEm) + (p.saidaPor ? '<br><small class="text-muted">' + esc(p.saidaPor) + '</small>' : '') + '</td>' +
+                        '<td class="text-end pe-3">' + acoes(p) + '</td></tr>';
+                }).join('');
+            } catch (e) {
+                aviso(e.message, 'danger');
+            }
+        }
+
+        tbody.addEventListener('click', async e => {
+            const b = e.target.closest('button[data-acao]');
+            if (!b) return;
+            const id = b.dataset.id;
+            try {
+                if (b.dataset.acao === 'status') {
+                    await api('/api/pedidos/' + id + '/status?status=' + encodeURIComponent(b.dataset.status), 'PUT');
+                } else if (b.dataset.acao === 'desconto') {
+                    const v = prompt('Percentual de desconto (máximo 20):');
+                    if (v === null) return;
+                    const n = Number(v.replace(',', '.'));
+                    await api('/api/pedidos/' + id + '/desconto', 'POST', {percentual: isNaN(n) ? null : n});
+                } else if (b.dataset.acao === 'cancelar') {
+                    const j = prompt('Justificativa do cancelamento:');
+                    if (j === null) return;
+                    await api('/api/pedidos/' + id + '/cancelamento', 'POST', {justificativa: j});
+                }
+                aviso('Operação realizada com sucesso.', 'success');
+                carregar();
+            } catch (err) {
+                aviso(err.message, 'danger');
+            }
+        });
+
+        function renderItens() {
+            document.getElementById('listaItens').innerHTML = itensNovo.map((i, idx) =>
+                '<li class="list-group-item d-flex justify-content-between align-items-center">' +
+                i.quantidade + 'x ' + esc(i.nome) +
+                '<button type="button" class="btn btn-sm btn-outline-danger" data-remover="' + idx + '">Remover</button></li>').join('');
+        }
+
+        async function carregarCadastros() {
+            try {
+                const clientes = await api('/api/clientes');
+                produtos = (await api('/api/produtos')).filter(p => p.ativo !== false);
+                document.getElementById('selCliente').innerHTML = clientes.map(c =>
+                    '<option value="' + esc(c.id) + '">' + esc(c.nome) + '</option>').join('');
+                document.getElementById('selProduto').innerHTML = produtos.map(p =>
+                    '<option value="' + esc(p.id) + '">' + esc(p.nome) + ' — ' + moeda(p.preco) + '</option>').join('');
+            } catch (e) {
+                aviso(e.message, 'danger');
+            }
+        }
+
+        if (podeCriar) {
+            document.getElementById('btnNovo').addEventListener('click', () => {
+                const c = document.getElementById('cardNovo');
+                c.style.display = c.style.display === 'none' ? 'block' : 'none';
+            });
+            document.getElementById('btnAddItem').addEventListener('click', () => {
+                const id = document.getElementById('selProduto').value;
+                const qtd = parseInt(document.getElementById('inpQtd').value, 10);
+                const prod = produtos.find(p => p.id === id);
+                if (!prod || !(qtd >= 1)) return;
+                itensNovo.push({produtoId: id, nome: prod.nome, quantidade: qtd});
+                renderItens();
+            });
+            document.getElementById('listaItens').addEventListener('click', e => {
+                const b = e.target.closest('button[data-remover]');
+                if (!b) return;
+                itensNovo.splice(parseInt(b.dataset.remover, 10), 1);
+                renderItens();
+            });
+            document.getElementById('btnSalvarPedido').addEventListener('click', async () => {
+                try {
+                    await api('/api/pedidos', 'POST', {
+                        clienteId: document.getElementById('selCliente').value,
+                        tipoEntrega: document.getElementById('selTipo').value,
+                        itens: itensNovo.map(i => ({produtoId: i.produtoId, quantidade: i.quantidade}))
+                    });
+                    itensNovo = [];
+                    renderItens();
+                    document.getElementById('cardNovo').style.display = 'none';
+                    aviso('Pedido registrado com sucesso.', 'success');
+                    carregar();
+                } catch (err) {
+                    aviso(err.message, 'danger');
+                }
+            });
+            carregarCadastros();
+        }
+
+        carregar();
+    })();
+    </script>
+
+</div>
+
+</body>
+</html>

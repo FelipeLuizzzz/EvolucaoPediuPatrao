@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Produtos</title>
+</head>
+<body>
+
+<div th:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-boxes me-2 text-primary"></i>Produtos
+        </h2>
+        <button type="button" id="btnNovoProduto" class="btn btn-primary"
+                th:if="${perfil == 'ADMIN' or perfil == 'GERENTE'}">
+            <i class="bi bi-plus-lg me-1"></i> Novo Produto
+        </button>
+    </div>
+
+    <div id="msgProd"></div>
+
+    <!-- Formulário (ADMIN e GERENTE) -->
+    <div class="card shadow-sm mb-4" id="cardProduto" style="display:none; max-width: 600px;">
+        <div class="card-body p-4">
+            <input type="hidden" id="prodId"/>
+            <div class="mb-3">
+                <label for="prodNome" class="form-label fw-medium">Nome</label>
+                <input type="text" id="prodNome" class="form-control" placeholder="Ex: Calabresa"/>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="prodTipo" class="form-label fw-medium">Tipo</label>
+                    <select id="prodTipo" class="form-select">
+                        <option>Pizza</option>
+                        <option>Esfiha</option>
+                        <option>Bebida</option>
+                        <option>Lanche</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="prodPreco" class="form-label fw-medium">Preço (R$)</label>
+                    <input type="text" id="prodPreco" class="form-control" placeholder="Ex: 45,90"/>
+                </div>
+            </div>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="prodAtivo" checked/>
+                <label class="form-check-label" for="prodAtivo">Ativo (aparece nos pedidos)</label>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" id="btnSalvarProduto" class="btn btn-success">
+                    <i class="bi bi-check-lg me-1"></i>Salvar
+                </button>
+                <button type="button" id="btnCancelarProduto" class="btn btn-outline-secondary">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="ps-4">Nome</th>
+                        <th>Tipo</th>
+                        <th>Preço</th>
+                        <th>Situação</th>
+                        <th class="text-end pe-4">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="produtos-tabela"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+    (function () {
+        const PERFIL = /*[[${perfil}]]*/ 'N/A';
+        const podeEditar = PERFIL === 'ADMIN' || PERFIL === 'GERENTE';
+        const tbody = document.getElementById('produtos-tabela');
+        const msg = document.getElementById('msgProd');
+        let produtos = [];
+
+        const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+            c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+        const moeda = v => Number(v || 0).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+
+        function aviso(texto, tipo) {
+            msg.innerHTML = '<div class="alert alert-' + tipo + ' alert-dismissible fade show">' + esc(texto) +
+                '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+        }
+
+        async function api(url, metodo, corpo) {
+            const opts = {method: metodo || 'GET', headers: {}};
+            if (corpo !== undefined) {
+                opts.headers['Content-Type'] = 'application/json';
+                opts.body = JSON.stringify(corpo);
+            }
+            const r = await fetch(url, opts);
+            let dados = null;
+            try { dados = await r.json(); } catch (e) { /* sem corpo */ }
+            if (!r.ok) throw new Error((dados && dados.erro) || ('Erro ' + r.status));
+            return dados;
+        }
+
+        async function carregar() {
+            try {
+                produtos = await api('/api/produtos');
+                if (!produtos.length) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-5">Nenhum produto cadastrado.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = produtos.map(p => {
+                    const ativo = p.ativo !== false;
+                    const acoes = podeEditar
+                        ? '<button class="btn btn-sm btn-outline-primary me-1" data-acao="editar" data-id="' + esc(p.id) + '"><i class="bi bi-pencil-fill"></i> Editar</button>' +
+                          '<button class="btn btn-sm btn-outline-danger" data-acao="excluir" data-id="' + esc(p.id) + '"><i class="bi bi-trash-fill"></i> Excluir</button>'
+                        : '';
+                    return '<tr>' +
+                        '<td class="ps-4">' + esc(p.nome) + '</td>' +
+                        '<td>' + esc(p.tipo) + '</td>' +
+                        '<td>' + moeda(p.preco) + '</td>' +
+                        '<td><span class="badge ' + (ativo ? 'bg-success' : 'bg-secondary') + '">' + (ativo ? 'Ativo' : 'Inativo') + '</span></td>' +
+                        '<td class="text-end pe-4">' + acoes + '</td></tr>';
+                }).join('');
+            } catch (e) {
+                aviso(e.message, 'danger');
+            }
+        }
+
+        function abrirForm(p) {
+            document.getElementById('prodId').value = p ? p.id : '';
+            document.getElementById('prodNome').value = p ? (p.nome || '') : '';
+            document.getElementById('prodTipo').value = p && p.tipo ? p.tipo : 'Pizza';
+            document.getElementById('prodPreco').value = p && p.preco != null ? String(p.preco).replace('.', ',') : '';
+            document.getElementById('prodAtivo').checked = p ? p.ativo !== false : true;
+            document.getElementById('cardProduto').style.display = 'block';
+        }
+
+        function fecharForm() {
+            document.getElementById('cardProduto').style.display = 'none';
+        }
+
+        tbody.addEventListener('click', async e => {
+            const b = e.target.closest('button[data-acao]');
+            if (!b || !podeEditar) return;
+            const id = b.dataset.id;
+            if (b.dataset.acao === 'editar') {
+                abrirForm(produtos.find(p => p.id === id));
+            } else if (b.dataset.acao === 'excluir') {
+                if (!confirm('Tem certeza que deseja excluir este produto?')) return;
+                try {
+                    await api('/api/produtos/' + id, 'DELETE');
+                    aviso('Produto excluído com sucesso.', 'success');
+                    carregar();
+                } catch (err) {
+                    aviso(err.message, 'danger');
+                }
+            }
+        });
+
+        if (podeEditar) {
+            document.getElementById('btnNovoProduto').addEventListener('click', () => abrirForm(null));
+            document.getElementById('btnCancelarProduto').addEventListener('click', fecharForm);
+            document.getElementById('btnSalvarProduto').addEventListener('click', async () => {
+                const id = document.getElementById('prodId').value;
+                const nome = document.getElementById('prodNome').value.trim();
+                const preco = Number(document.getElementById('prodPreco').value.replace(',', '.'));
+                if (!nome) { aviso('Informe o nome do produto.', 'danger'); return; }
+                if (!(preco > 0)) { aviso('Informe um preço maior que zero.', 'danger'); return; }
+                const corpo = {
+                    nome: nome,
+                    tipo: document.getElementById('prodTipo').value,
+                    preco: preco,
+                    ativo: document.getElementById('prodAtivo').checked
+                };
+                try {
+                    if (id) {
+                        await api('/api/produtos/' + id, 'PUT', corpo);
+                    } else {
+                        await api('/api/produtos', 'POST', corpo);
+                    }
+                    fecharForm();
+                    aviso('Produto salvo com sucesso.', 'success');
+                    carregar();
+                } catch (err) {
+                    aviso(err.message, 'danger');
+                }
+            });
+        }
+
+        carregar();
+    })();
+    </script>
+
+</div>
+
+</body>
+</html>
