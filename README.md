@@ -107,3 +107,8 @@ Acesso negado retorna 403 em JSON (`{"erro":"Acesso negado"}`) e sem login retor
 - A auditoria é gravada logo após a alteração do pedido ou cliente, sem transação entre as duas coleções.
 - Telefones na auditoria são gravados mascarados; quando a máscara fica igual antes e depois, o valor novo recebe a marca `(alterado)`.
 - Testes: 71 testes automatizados (`.\mvnw.cmd test`), sem necessidade de banco.
+## Dashboard Administrativo
+
+Painel de vendas para ADMIN e GERENTE em **/dashboard**, alimentado pela API `/api/dashboard/*`.
+Requisitos, endpoints, testes e roteiro de demonstração: [docs/DASHBOARD.md](docs/DASHBOARD.md).
+Para dados de exemplo, defina `DASHBOARD_SEED_DEMO=true` antes de subir o app (só semeia se não houver pedidos).
