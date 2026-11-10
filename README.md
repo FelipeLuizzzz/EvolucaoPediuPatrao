@@ -163,7 +163,7 @@ Entradas inválidas nos endpoints do dashboard retornam 400 com `{"erro":"..."}`
 | Evidências de testes | seção Testes de [docs/DASHBOARD.md](docs/DASHBOARD.md) |
 | Dashboard administrativo funcional | `/dashboard` |
 | Código-fonte da API integrada ao banco | `DashboardController`, `DashboardService`, `PedidoRepository` |
-| Vídeo de apresentação (até 3 min) | _colar o link aqui_ |
+| Vídeo de apresentação (até 3 min) |[Vídeo](https://www.youtube.com/watch?v=zkgFamPGkQg) |
 
 ## Fluxo de branches
 
