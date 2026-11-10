@@ -170,7 +170,32 @@ Não precisam de banco (Mockito e MockMvc).
 | `DashboardServiceTest` (16 testes) | faturamento sem cancelados, ticket médio, período sem pedidos, filtros de tipo e status, dias sem venda preenchidos, agrupamento por mês, 7 status sempre presentes, ordem e limite do ranking, vendas por tipo, e todos os erros de validação |
 | `DashboardApiTest` (6 testes) | 401 sem login, 403 para ATENDENTE, 200 para GERENTE e ADMIN, JSON de resposta, 400 para data inválida e para regra de negócio |
 
-**Evidência:** colar aqui a saída final do `.\mvnw.cmd test` (linhas `Tests run: ..., Failures: 0, Errors: 0`) e os prints abaixo.
+### Evidência
+
+Execução dos testes automatizados com `.\mvnw.cmd test`:
+
+```text
+[INFO] Results:
+[INFO]
+[INFO] Tests run: 93, Failures: 0, Errors: 0, Skipped: 0
+[INFO]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  12.787 s
+[INFO] Finished at: 2026-11-10T18:19:03-03:00
+[INFO] ------------------------------------------------------------------------
+```
+
+| Resultado | Valor |
+|---|---|
+| Testes executados | 93 |
+| Falhas | 0 |
+| Erros | 0 |
+| Ignorados | 0 |
+| Status | ✅ BUILD SUCCESS |
+| Tempo total | 12,8 s |
+| Data/hora | 10/11/2026 às 18:19 (UTC-3) |
 
 ### Manuais (roteiro com dados de demonstração)
 
