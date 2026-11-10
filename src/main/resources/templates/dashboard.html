@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Dashboard</title>
+</head>
+<body>
+
+<div th:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-graph-up me-2 text-primary"></i>Dashboard Administrativo
+        </h2>
+        <small class="text-muted" id="dashAtualizado"></small>
+    </div>
+
+    <div id="dashMsg"></div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-medium" for="dashInicio">Data inicial</label>
+                    <input type="date" id="dashInicio" class="form-control"/>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-medium" for="dashFim">Data final</label>
+                    <input type="date" id="dashFim" class="form-control"/>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-medium" for="dashTipo">Tipo</label>
+                    <select id="dashTipo" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="ENTREGA">Entrega</option>
+                        <option value="RETIRADA">Retirada</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-medium" for="dashStatus">Status</label>
+                    <select id="dashStatus" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="RECEBIDO">Recebido</option>
+                        <option value="EM_PREPARACAO">Em preparação</option>
+                        <option value="PRONTO">Pronto</option>
+                        <option value="SAIU_PARA_ENTREGA">Saiu para entrega</option>
+                        <option value="RETIRADO">Retirado</option>
+                        <option value="FINALIZADO">Finalizado</option>
+                        <option value="CANCELADO">Cancelado</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-medium" for="dashAgrupamento">Agrupar por</label>
+                    <select id="dashAgrupamento" class="form-select">
+                        <option value="DIA">Dia</option>
+                        <option value="MES">Mês</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <button type="button" id="dashBtn" class="btn btn-primary w-100">
+                        <i class="bi bi-arrow-repeat me-1"></i>Atualizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100"><div class="card-body">
+                <div class="text-muted small">Faturamento</div>
+                <div class="fs-4 fw-bold" id="kFaturamento">-</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100"><div class="card-body">
+                <div class="text-muted small">Pedidos válidos</div>
+                <div class="fs-4 fw-bold" id="kPedidos">-</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100"><div class="card-body">
+                <div class="text-muted small">Ticket médio</div>
+                <div class="fs-4 fw-bold" id="kTicket">-</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100"><div class="card-body">
+                <div class="text-muted small">Cancelados</div>
+                <div class="fs-4 fw-bold text-danger" id="kCancelados">-</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100"><div class="card-body">
+                <div class="text-muted small">Descontos concedidos</div>
+                <div class="fs-5 fw-bold" id="kDescontos">-</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm h-100"><div class="card-body">
+                <div class="text-muted small">Itens vendidos</div>
+                <div class="fs-5 fw-bold" id="kItens">-</div>
+            </div></div>
+        </div>
+    </div>
+
+    <div id="dashVazio" class="alert alert-info d-none">Nenhuma venda encontrada para os filtros selecionados.</div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header fw-medium">Faturamento por período</div>
+                <div class="card-body"><canvas id="gVendas" height="120"></canvas></div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header fw-medium">Vendas por tipo de entrega</div>
+                <div class="card-body"><canvas id="gTipo" height="220"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header fw-medium">Situação dos pedidos</div>
+                <div class="card-body">
+                    <canvas id="gStatus" height="220"></canvas>
+                    <div id="dashStatusLista" class="d-flex flex-wrap gap-2 mt-3"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-header fw-medium">Produtos mais vendidos</div>
+                <div class="card-body p-0 table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="ps-3">#</th>
+                                <th>Produto</th>
+                                <th class="text-end">Qtd.</th>
+                                <th class="text-end pe-3">Faturamento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashRanking"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:src="@{/plugins/chart.js/Chart.min.js}"></script>
+    <script>
+        (function () {
+            const ROTULOS = {
+                RECEBIDO: 'Recebido', EM_PREPARACAO: 'Em preparação', PRONTO: 'Pronto',
+                SAIU_PARA_ENTREGA: 'Saiu para entrega', RETIRADO: 'Retirado',
+                FINALIZADO: 'Finalizado', CANCELADO: 'Cancelado'
+            };
+            const CORES = {
+                RECEBIDO: '#6c757d', EM_PREPARACAO: '#ffc107', PRONTO: '#0dcaf0',
+                SAIU_PARA_ENTREGA: '#0d6efd', RETIRADO: '#6610f2',
+                FINALIZADO: '#198754', CANCELADO: '#dc3545'
+            };
+            const graficos = {};
+            const moeda = v => Number(v).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+            const el = id => document.getElementById(id);
+
+            function iso(d) {
+                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            }
+
+            function parametros() {
+                const p = new URLSearchParams();
+                if (el('dashInicio').value) p.set('inicio', el('dashInicio').value);
+                if (el('dashFim').value) p.set('fim', el('dashFim').value);
+                if (el('dashTipo').value) p.set('tipoEntrega', el('dashTipo').value);
+                if (el('dashStatus').value) p.set('status', el('dashStatus').value);
+                return p;
+            }
+
+            async function buscar(caminho, extras) {
+                const p = parametros();
+                Object.keys(extras || {}).forEach(k => p.set(k, extras[k]));
+                const res = await fetch('/api/dashboard/' + caminho + '?' + p.toString(), {headers: {'Accept': 'application/json'}});
+                if (res.status === 401) throw new Error('Sessão expirada. Faça login novamente.');
+                if (res.status === 403) throw new Error('Você não tem permissão para ver o dashboard.');
+                if (!res.ok) {
+                    let msg = 'Erro ' + res.status + ' ao consultar ' + caminho + '.';
+                    try { msg = (await res.json()).erro || msg; } catch (e) {}
+                    throw new Error(msg);
+                }
+                return res.json();
+            }
+
+            function desenhar(id, config) {
+                if (graficos[id]) graficos[id].destroy();
+                graficos[id] = new Chart(el(id).getContext('2d'), config);
+            }
+
+            function rotuloPeriodo(p) {
+                const partes = p.split('-');
+                return partes.length === 3 ? partes[2] + '/' + partes[1] : partes[1] + '/' + partes[0];
+            }
+
+            function mostrarErro(msg) {
+                const div = el('dashMsg');
+                div.innerHTML = '';
+                if (!msg) return;
+                const a = document.createElement('div');
+                a.className = 'alert alert-danger';
+                a.textContent = msg;
+                div.appendChild(a);
+            }
+
+            function renderResumo(r) {
+                el('kFaturamento').textContent = moeda(r.faturamento);
+                el('kPedidos').textContent = r.pedidosValidos;
+                el('kTicket').textContent = moeda(r.ticketMedio);
+                el('kCancelados').textContent = r.pedidosCancelados;
+                el('kDescontos').textContent = moeda(r.totalDescontos);
+                el('kItens').textContent = r.itensVendidos;
+                el('dashVazio').classList.toggle('d-none', r.pedidosValidos > 0);
+            }
+
+            function renderVendas(lista) {
+                desenhar('gVendas', {
+                    type: 'bar',
+                    data: {
+                        labels: lista.map(v => rotuloPeriodo(v.periodo)),
+                        datasets: [{label: 'Faturamento (R$)', data: lista.map(v => v.total), backgroundColor: '#0d6efd'}]
+                    },
+                    options: {legend: {display: false}, scales: {yAxes: [{ticks: {beginAtZero: true}}]}}
+                });
+            }
+
+            function renderTipo(lista) {
+                desenhar('gTipo', {
+                    type: 'doughnut',
+                    data: {
+                        labels: lista.map(t => t.tipoEntrega === 'ENTREGA' ? 'Entrega' : 'Retirada'),
+                        datasets: [{data: lista.map(t => t.total), backgroundColor: ['#fd7e14', '#20c997']}]
+                    },
+                    options: {tooltips: {callbacks: {label: (i, d) => d.labels[i.index] + ': ' + moeda(d.datasets[0].data[i.index])}}}
+                });
+            }
+
+            function renderStatus(lista) {
+                desenhar('gStatus', {
+                    type: 'doughnut',
+                    data: {
+                        labels: lista.map(s => ROTULOS[s.status]),
+                        datasets: [{data: lista.map(s => s.quantidade), backgroundColor: lista.map(s => CORES[s.status])}]
+                    },
+                    options: {legend: {display: false}}
+                });
+                const box = el('dashStatusLista');
+                box.innerHTML = '';
+                lista.forEach(s => {
+                    const b = document.createElement('span');
+                    b.className = 'badge';
+                    b.style.backgroundColor = CORES[s.status];
+                    b.textContent = ROTULOS[s.status] + ': ' + s.quantidade;
+                    box.appendChild(b);
+                });
+            }
+
+            function celula(texto, classe) {
+                const td = document.createElement('td');
+                td.textContent = texto;
+                if (classe) td.className = classe;
+                return td;
+            }
+
+            function renderRanking(lista) {
+                const corpo = el('dashRanking');
+                corpo.innerHTML = '';
+                if (!lista.length) {
+                    const tr = document.createElement('tr');
+                    const td = celula('Sem vendas no período.', 'text-center text-muted py-4');
+                    td.colSpan = 4;
+                    tr.appendChild(td);
+                    corpo.appendChild(tr);
+                    return;
+                }
+                lista.forEach((p, i) => {
+                    const tr = document.createElement('tr');
+                    tr.appendChild(celula(i + 1, 'ps-3'));
+                    tr.appendChild(celula(p.nome));
+                    tr.appendChild(celula(p.quantidade, 'text-end'));
+                    tr.appendChild(celula(moeda(p.faturamento), 'text-end pe-3'));
+                    corpo.appendChild(tr);
+                });
+            }
+
+            async function carregar() {
+                const btn = el('dashBtn');
+                btn.disabled = true;
+                mostrarErro(null);
+                try {
+                    const [resumo, vendas, tipo, status, ranking] = await Promise.all([
+                        buscar('resumo'),
+                        buscar('vendas-por-periodo', {agrupamento: el('dashAgrupamento').value}),
+                        buscar('vendas-por-tipo-entrega'),
+                        buscar('pedidos-por-status'),
+                        buscar('produtos-mais-vendidos', {limite: 5})
+                    ]);
+                    renderResumo(resumo);
+                    renderVendas(vendas);
+                    renderTipo(tipo);
+                    renderStatus(status);
+                    renderRanking(ranking);
+                    el('dashAtualizado').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+                } catch (e) {
+                    mostrarErro(e.message || 'Não foi possível carregar o dashboard.');
+                } finally {
+                    btn.disabled = false;
+                }
+            }
+
+            const hoje = new Date();
+            const inicio = new Date();
+            inicio.setDate(hoje.getDate() - 29);
+            el('dashInicio').value = iso(inicio);
+            el('dashFim').value = iso(hoje);
+
+            el('dashBtn').addEventListener('click', carregar);
+            ['dashInicio', 'dashFim', 'dashTipo', 'dashStatus', 'dashAgrupamento'].forEach(id => el(id).addEventListener('change', carregar));
+            carregar();
+            setInterval(carregar, 60000);
+        })();
+    </script>
+</div>
+
+</body>
+</html>
